@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════════════════════
-# Legion Linux Toolkit — Installer  v0.6.3
-# Supports: Legion, LOQ, ThinkPad, ThinkBook, Yoga, IdeaPad
+# Legion Linux Toolkit — Installer  v0.6.3  (LLL backend)
+# Installs the PyQt6 GUI + tray alongside LLL (LenovoLegionLinux) for hardware.
 # ══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -12,163 +12,82 @@ info() { echo -e "  ${CYAN}→${NC}  $*"; }
 warn() { echo -e "  ${YELLOW}⚠${NC}  $*"; }
 err()  { echo -e "  ${RED}✗${NC}  $*"; exit 1; }
 
-# ── Progress Bar ───────────────────────────────────────────────────────────────
-BAR_WIDTH=40
-TOTAL_STEPS=8
-CURRENT_STEP=0
-
-progress() {
-    local label="$1"
-    CURRENT_STEP=$((CURRENT_STEP + 1))
-    local pct=$(( (CURRENT_STEP * 100) / TOTAL_STEPS ))
-    local filled=$(( (CURRENT_STEP * BAR_WIDTH) / TOTAL_STEPS ))
-    local empty=$(( BAR_WIDTH - filled ))
-
-    # Build bar string
-    local bar="["
-    for ((i=0; i<filled; i++)); do bar+="█"; done
-    for ((i=0; i<empty; i++)); do bar+="░"; done
-    bar+="]"
-
-    printf "\r  ${CYAN}%s${NC}  %3d%% %s  " "$bar" "$pct" "$label"
-}
-
-progress_done() {
-    echo "" # Move to next line after final progress
-}
-
 [[ $EUID -ne 0 ]] && err "Run as root: sudo bash install.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo "")}"
 
 echo -e "\n${BOLD}╔══════════════════════════════════════════╗"
 echo      "║   Legion Linux Toolkit — Installer       ║"
-echo      "║              v0.6.3                      ║"
+echo      "║              v0.6.3 (LLL)                ║"
 echo -e   "╚══════════════════════════════════════════╝${NC}\n"
 
-# ── Detect Lenovo brand ───────────────────────────────────────────────────────
-PRODUCT=$(cat /sys/class/dmi/id/product_name   2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
-FAMILY=$(cat  /sys/class/dmi/id/product_family 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
-VENDOR=$(cat  /sys/class/dmi/id/sys_vendor     2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
-
-if [[ "$VENDOR" != *"lenovo"* ]]; then
-    warn "This software is designed for Lenovo laptops."
-    read -rp "  Continue anyway? [y/N] " yn
-    [[ "${yn,,}" == "y" ]] || exit 0
-fi
-
-FULL="$PRODUCT $FAMILY"
-if   [[ "$FULL" == *"legion"* ]];    then BRAND="Legion"
-elif [[ "$FULL" == *"loq"* ]];       then BRAND="LOQ"
-elif [[ "$FULL" == *"thinkpad"* ]];  then BRAND="ThinkPad"
-elif [[ "$FULL" == *"thinkbook"* ]]; then BRAND="ThinkBook"
-elif [[ "$FULL" == *"yoga"* ]];      then BRAND="Yoga"
-elif [[ "$FULL" == *"ideapad"* ]];   then BRAND="IdeaPad"
-else                                       BRAND="Lenovo"
-fi
-
-echo -e "  ${CYAN}Detected:${NC}  $BRAND — $(cat /sys/class/dmi/id/product_name 2>/dev/null || echo 'Unknown')\n"
-
 # ── 1. Core dependencies ──────────────────────────────────────────────────────
-progress "Checking core dependencies…"
-MISSING_PACMAN=()
-python3 -c "import PyQt6" 2>/dev/null      || MISSING_PACMAN+=("python-pyqt6")
-command -v notify-send &>/dev/null         || MISSING_PACMAN+=("libnotify")
-pacman -Q qt6-wayland &>/dev/null         || MISSING_PACMAN+=("qt6-wayland")
-command -v kscreen-doctor &>/dev/null     || MISSING_PACMAN+=("kscreen")
-command -v git &>/dev/null                || MISSING_PACMAN+=("git")
-[[ ${#MISSING_PACMAN[@]} -gt 0 ]] && pacman -S --noconfirm --needed "${MISSING_PACMAN[@]}"
+info "Installing core dependencies…"
+MISSING=()
+python3 -c "import PyQt6" 2>/dev/null      || MISSING+=("python-pyqt6")
+command -v notify-send &>/dev/null         || MISSING+=("libnotify")
+pacman -Q qt6-wayland &>/dev/null          || MISSING+=("qt6-wayland")
+command -v git &>/dev/null                || MISSING+=("git")
+[[ ${#MISSING[@]} -gt 0 ]] && pacman -S --noconfirm --needed "${MISSING[@]}"
 ok "Core packages ready"
 
-# ── 2. Brand-specific optional packages ──────────────────────────────────────
-progress "Installing optional packages for $BRAND…"
-if [[ "$BRAND" == "Legion" || "$BRAND" == "LOQ" ]]; then
-    if ! lsmod 2>/dev/null | grep -q "lenovo_legion"; then
-        pacman -S --noconfirm --needed lenovolegionlinux lenovolegionlinux-dkms 2>/dev/null \
-            && ok "lenovolegionlinux installed" || warn "Not in repos — skip"
-        modprobe legion_laptop 2>/dev/null || true; sleep 1
-    else
-        ok "lenovo_legion already loaded"
-    fi
-    if dmesg 2>/dev/null | grep -q "probe with driver legion failed\|Could not init ACPI access"; then
-        echo 'options legion_laptop force=1' > /etc/modprobe.d/legion_laptop_force.conf
-        modprobe -r legion_laptop 2>/dev/null || true
-        modprobe legion_laptop force=1 2>/dev/null && ok "Force-load applied" || warn "Force-load failed"
-    fi
-    if ! command -v envycontrol &>/dev/null; then
-        if command -v paru &>/dev/null; then
-            sudo -u "${REAL_USER:-root}" paru -S --noconfirm envycontrol 2>/dev/null \
-                && ok "envycontrol installed" \
-                || warn "envycontrol install failed — run: paru -S envycontrol"
-        else
-            warn "paru not found — install envycontrol manually: paru -S envycontrol"
-        fi
-    else
-        ok "envycontrol already installed"
-    fi
-    ENV_BIN=$(command -v envycontrol 2>/dev/null || true)
-    if [[ -n "$ENV_BIN" && ! -f "/usr/local/bin/envycontrol" ]]; then
-        ln -sf "$ENV_BIN" /usr/local/bin/envycontrol
-        ok "envycontrol symlinked → /usr/local/bin/envycontrol"
-    fi
-fi
-if [[ "$BRAND" == "ThinkPad" || "$BRAND" == "Yoga" || "$BRAND" == "ThinkBook" ]]; then
-    command -v fprintd-enroll &>/dev/null \
-        || pacman -S --noconfirm --needed fprintd 2>/dev/null && ok "fprintd ready" || true
-fi
-if [[ "$BRAND" == "Yoga" ]]; then
-    command -v monitor-sensor &>/dev/null \
-        || pacman -S --noconfirm --needed iio-sensor-proxy 2>/dev/null && ok "iio-sensor-proxy ready" || true
+# ── 2. Install LLL (LenovoLegionLinux) ────────────────────────────────────────
+info "Installing LenovoLegionLinux (LLL)…"
+if ! pacman -Q lenovolegionlinux &>/dev/null; then
+    pacman -S --noconfirm --needed lenovolegionlinux lenovolegionlinux-dkms 2>/dev/null \
+        && ok "LLL installed from repos" \
+        || warn "LLL not in your distro repos"
 fi
 
-# ── 3. Hardware detection ─────────────────────────────────────────────────────
-progress "Scanning hardware features…"
-chk() { [[ -e "$2" ]] && echo -e "     ${GREEN}✓${NC}  $1" || echo -e "     ${YELLOW}-${NC}  $1 (not found)"; }
-chk "powermode"         "$(find /sys/devices -name 'powermode' -path '*/PNP0C09*' 2>/dev/null | head -1)"
-chk "ideapad_acpi"      "/sys/bus/platform/drivers/ideapad_acpi/VPC2004:00"
-chk "kbd_backlight"     "/sys/class/leds/platform::kbd_backlight/brightness"
-BL=$(ls /sys/class/backlight/*/brightness 2>/dev/null | head -1 || true)
-[[ -n "$BL" ]] && echo -e "     ${GREEN}✓${NC}  backlight → $(dirname "$BL")" \
-               || echo -e "     ${YELLOW}-${NC}  backlight not found"
+if ! lsmod 2>/dev/null | grep -q "legion_laptop"; then
+    modprobe legion_laptop 2>/dev/null || true
+    sleep 1
+fi
 
-# ── 4. Stop any existing instances ───────────────────────────────────────────
-progress "Stopping existing instances…"
-pkill -f "legion-tray"   2>/dev/null && info "Stopped tray"   || true
-pkill -f "legion-gui"    2>/dev/null && info "Stopped gui"    || true
-systemctl stop legion-toolkit.service 2>/dev/null && info "Stopped daemon" || true
-sleep 0.5
+if dmesg 2>/dev/null | grep -q "probe with driver legion failed\|Could not init ACPI access"; then
+    echo 'options legion_laptop force=1' > /etc/modprobe.d/legion_laptop_force.conf
+    modprobe -r legion_laptop 2>/dev/null || true
+    modprobe legion_laptop force=1 2>/dev/null && ok "Force-load applied" || warn "Force-load failed"
+fi
 
-# ── 5. Install daemon ─────────────────────────────────────────────────────────
-progress "Installing daemon…"
+# Install LLL Python package
+if ! python3 -c "import legion_linux" 2>/dev/null; then
+    info "Installing legion_linux Python package…"
+    TMP_DIR=$(mktemp -d)
+    cd "$TMP_DIR"
+    git clone --depth=1 https://github.com/johnfanv2/LenovoLegionLinux.git
+    cd LenovoLegionLinux/python
+    pip install . 2>/dev/null && ok "legion_linux Python package installed" \
+        || warn "legion_linux install failed"
+    cd /
+    rm -rf "$TMP_DIR"
+fi
+
+ok "LLL ready"
+
+# ── 3. Install GUI + tray ─────────────────────────────────────────────────────
+info "Installing Legion Linux Toolkit GUI…"
 mkdir -p /usr/lib/legion-toolkit
-install -m 755 "$SCRIPT_DIR/daemon/legion-daemon.py" /usr/lib/legion-toolkit/legion-daemon.py
-install -m 755 "$SCRIPT_DIR/udev/udev-trigger.sh"    /usr/lib/legion-toolkit/udev-trigger.sh
-ok "Daemon installed"
-
-# ── 6. Install CLI ────────────────────────────────────────────────────────────
-progress "Installing CLI…"
-if [[ -f "$SCRIPT_DIR/scripts/legion-ctl" ]]; then
-    install -m 755 "$SCRIPT_DIR/scripts/legion-ctl" /usr/local/bin/legion-ctl
-else
-    printf '#!/usr/bin/env bash\nexec /usr/lib/legion-toolkit/legion-daemon.py "$@"\n' \
-        > /usr/local/bin/legion-ctl && chmod 755 /usr/local/bin/legion-ctl
-fi
-ok "CLI installed → /usr/local/bin/legion-ctl"
-
-# ── 7. Install GUI + tray ─────────────────────────────────────────────────────
-progress "Installing GUI and tray…"
 install -m 755 "$SCRIPT_DIR/tray/legion-gui.py"  /usr/lib/legion-toolkit/legion-gui.py
 install -m 755 "$SCRIPT_DIR/tray/legion-tray.py" /usr/lib/legion-toolkit/legion-tray.py
 install -m 644 "$SCRIPT_DIR/tray/kernel_check.py" /usr/lib/legion-toolkit/kernel_check.py
+install -m 755 -d /usr/lib/legion-toolkit/lib
+cp -r "$SCRIPT_DIR/lib/lll_adapter.py" /usr/lib/legion-toolkit/lib/lll_adapter.py
 install -m 644 "$SCRIPT_DIR/tray/org.legion-toolkit.policy" \
     /usr/share/polkit-1/actions/org.legion-toolkit.policy
+install -m 755 "$SCRIPT_DIR/scripts/legion-helper.sh" \
+    /usr/lib/legion-toolkit/legion-helper.sh
+install -m 644 "$SCRIPT_DIR/polkit/49-legion-toolkit.rules" \
+    /etc/polkit-1/rules.d/49-legion-toolkit.rules
 ok "GUI and tray installed"
 
-# Get the real user (not root)
-REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo "orb")}"
+# ── 4. Install CLI ────────────────────────────────────────────────────────────
+info "Installing CLI…"
+install -m 755 "$SCRIPT_DIR/scripts/legion-ctl" /usr/local/bin/legion-ctl
+ok "CLI → /usr/local/bin/legion-ctl (delegates to legion_cli)"
 
-# Create autostart that runs as user directly
+# ── 5. Autostart ──────────────────────────────────────────────────────────────
+info "Configuring autostart…"
 cat > /etc/xdg/autostart/legion-toolkit.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
@@ -181,35 +100,36 @@ X-GNOME-Autostart-enabled=true
 EOF
 ok "Autostart configured"
 
-# ── 8. udev + systemd ─────────────────────────────────────────────────────────
-progress "Configuring udev rules and service…"
+# ── 6. LLL daemon ─────────────────────────────────────────────────────────────
+info "Setting up LLL legiond daemon…"
+if command -v legiond &>/dev/null; then
+    systemctl enable --now legiond.service 2>/dev/null && ok "legiond started" \
+        || warn "legiond not available — install LLL first"
+fi
+ok "Service configured"
+
+# ── 7. udev (keyboard RGB permissions) ────────────────────────────────────────
+info "Installing udev rules…"
 install -m 644 "$SCRIPT_DIR/udev/99-legion-toolkit.rules" /etc/udev/rules.d/
 udevadm control --reload-rules && udevadm trigger
 ok "udev rules installed"
 
-install -m 644 "$SCRIPT_DIR/systemd/legion-toolkit.service" \
-    /etc/systemd/system/legion-toolkit.service
-systemctl daemon-reload
-systemctl enable --now legion-toolkit.service
-touch /var/log/legion-toolkit.log && chmod 644 /var/log/legion-toolkit.log
-ok "Service enabled and started"
+# ── 8. Launch tray immediately ────────────────────────────────────────────────
+info "Starting tray for current user…"
+REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo "")}"
+if [[ -n "$REAL_USER" ]]; then
+    pkill -f "legion-tray" 2>/dev/null || true
+    sleep 0.5
+    sudo -u "$REAL_USER" nohup python3 /usr/lib/legion-toolkit/legion-tray.py \
+        > /dev/null 2>&1 &
+    ok "Tray launched — no reboot needed"
+fi
 
-progress_done
-
-# ── Verify + launch ───────────────────────────────────────────────────────────
-echo -e "\n${BOLD}Verifying and launching…${NC}"
-sleep 1
-systemctl is-active --quiet legion-toolkit.service \
-    && ok "Daemon running" \
-    || warn "Daemon not running — journalctl -u legion-toolkit.service"
-
-# Reset first-run flag so wizard shows on next launch
-[[ -n "$REAL_USER" ]] && \
-    rm -f "/home/${REAL_USER}/.config/legion-toolkit/first_run_done" 2>/dev/null || true
-
+# ── Done ──────────────────────────────────────────────────────────────────────
 echo -e "\n${GREEN}${BOLD}✓ Installation complete!${NC}"
-echo -e "  Brand : ${CYAN}$BRAND${NC}"
-echo    "  Update: sudo bash update.sh"
-echo    "  Logs  : journalctl -fu legion-toolkit.service"
-echo    "  Tray  : Run 'legion-toolkit' or reboot to start automatically"
+echo -e "  ${CYAN}LLL${NC}     : ${GREEN}installed${NC}"
+echo -e "  ${CYAN}Tray${NC}    : ${GREEN}running now${NC} (autostart on next login)"
+echo -e "  ${CYAN}CLI${NC}     : legion-ctl (wraps legion_cli)"
+echo -e "  ${CYAN}Daemon${NC}  : legiond (from LLL)"
+echo -e "  ${CYAN}Logs${NC}    : journalctl -fu legiond.service"
 echo ""

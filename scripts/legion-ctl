@@ -1,63 +1,120 @@
 #!/usr/bin/env bash
 # =============================================================
-# legion-ctl — Legion Linux Toolkit CLI
+# legion-ctl — CLI wrapper for LLL (LenovoLegionLinux)
+# Delegates all hardware control to legion_cli
 # =============================================================
-# Usage examples:
-#   legion-ctl quiet
-#   legion-ctl balanced
-#   legion-ctl balanced-performance
-#   legion-ctl performance
+# Usage:
+#   legion-ctl quiet|balanced|performance|custom
 #   legion-ctl status
-#   legion-ctl conservation on
-#   legion-ctl conservation off
-#   legion-ctl camera on|off
+#   legion-ctl conservation on|off
 #   legion-ctl fn-lock on|off
+#   legion-ctl camera on|off
 #   legion-ctl usb-charging on|off
+#   legion-ctl rapid-charge on|off
 # =============================================================
 
 if [[ $EUID -ne 0 ]]; then
-    exec sudo "$0" "$@"
+    exec pkexec "$0" "$@"
 fi
 
-DAEMON="/usr/lib/legion-toolkit/legion-daemon.py"
+LLL_CLI="legion_cli"
 
 case "${1:-}" in
-    quiet|balanced|balanced-performance|performance|status)
-        exec python3 "$DAEMON" "$1"
+    quiet|balanced|performance|custom)
+        exec "$LLL_CLI" set-feature PlatformProfileFeature "$1"
         ;;
     conservation)
-        exec python3 "$DAEMON" "conservation-${2:-on}"
-        ;;
-    camera)
-        exec python3 "$DAEMON" "camera-${2:-on}"
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" batteryconservation-enable ;;
+            off) exec "$LLL_CLI" batteryconservation-disable ;;
+            *)   exec "$LLL_CLI" batteryconservation-status ;;
+        esac
         ;;
     fn-lock)
-        exec python3 "$DAEMON" "fn-lock-${2:-on}"
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" fnlock-enable ;;
+            off) exec "$LLL_CLI" fnlock-disable ;;
+            *)   exec "$LLL_CLI" fnlock-status ;;
+        esac
+        ;;
+    camera)
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" camera-power-enable ;;
+            off) exec "$LLL_CLI" camera-power-disable ;;
+            *)   exec "$LLL_CLI" camera-power-status ;;
+        esac
         ;;
     usb-charging)
-        exec python3 "$DAEMON" "usb-charging-${2:-on}"
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" always-on-usb-charging-enable ;;
+            off) exec "$LLL_CLI" always-on-usb-charging-disable ;;
+            *)   exec "$LLL_CLI" always-on-usb-charging-status ;;
+        esac
         ;;
     rapid-charge)
-        exec python3 "$DAEMON" "rapid-charge-${2:-on}"
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" rapid-charging-enable ;;
+            off) exec "$LLL_CLI" rapid-charging-disable ;;
+            *)   exec "$LLL_CLI" rapid-charging-status ;;
+        esac
+        ;;
+    max-fan)
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" maximumfanspeed-enable ;;
+            off) exec "$LLL_CLI" maximumfanspeed-disable ;;
+            *)   exec "$LLL_CLI" maximumfanspeed-status ;;
+        esac
+        ;;
+    lock-fan)
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" lockfancontroller-enable ;;
+            off) exec "$LLL_CLI" lockfancontroller-disable ;;
+            *)   exec "$LLL_CLI" lockfancontroller-status ;;
+        esac
+        ;;
+    overdrive)
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" overdrive-enable ;;
+            off) exec "$LLL_CLI" overdrive-disable ;;
+            *)   exec "$LLL_CLI" overdrive-status ;;
+        esac
+        ;;
+    hybrid-mode)
+        case "${2:-}" in
+            on)  exec "$LLL_CLI" hybrid-mode-enable ;;
+            off) exec "$LLL_CLI" hybrid-mode-disable ;;
+            *)   exec "$LLL_CLI" hybrid-mode-status ;;
+        esac
+        ;;
+    status)
+        "$LLL_CLI" batteryconservation-status
+        "$LLL_CLI" fnlock-status
+        "$LLL_CLI" maximumfanspeed-status
+        "$LLL_CLI" lockfancontroller-status
+        echo "---"
+        echo "CPU Boost: $(cat /sys/devices/system/cpu/cpufreq/boost 2>/dev/null || echo 'N/A')"
+        echo "CPU Governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo 'N/A')"
+        echo "Power mode: $(cat /sys/module/legion_laptop/drivers/platform:legion/legion/powermode 2>/dev/null || echo 'N/A')"
         ;;
     "")
-        echo "Legion Linux Toolkit — CLI"
+        echo "Legion Linux Toolkit — CLI (LLL backend)"
         echo ""
-        echo "Usage: legion-ctl <command>"
+        echo "Usage: legion-ctl <command> [on|off]"
         echo ""
         echo "  Profiles:"
-        echo "    quiet                  Silent, 15W, boost off"
-        echo "    balanced               35W, boost on, auto fan"
-        echo "    balanced-performance   45W, boost on"
-        echo "    performance            54W, full speed"
+        echo "    quiet|balanced|performance|custom"
         echo ""
         echo "  Settings:"
-        echo "    status                 Show current state"
-        echo "    conservation on|off    Battery charge cap (~60%)"
-        echo "    camera on|off          Camera power"
-        echo "    fn-lock on|off         Fn key lock"
-        echo "    usb-charging on|off    USB power while off"
-        echo "    rapid-charge on|off    Rapid charging (faster but more heat)"
+        echo "    status                  Show current state"
+        echo "    conservation on|off     Battery charge cap (~60%)"
+        echo "    camera on|off           Camera power"
+        echo "    fn-lock on|off          Fn key lock"
+        echo "    usb-charging on|off     USB power while off"
+        echo "    rapid-charge on|off     Rapid charging"
+        echo "    max-fan on|off          Fan full speed"
+        echo "    lock-fan on|off         Lock fan controller"
+        echo "    overdrive on|off        Display overdrive"
+        echo "    hybrid-mode on|off      G-Sync mode"
         ;;
     *)
         echo "Unknown command: $1"

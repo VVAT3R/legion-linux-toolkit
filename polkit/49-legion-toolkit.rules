@@ -1,0 +1,11 @@
+// Allow Legion Linux Toolkit to control hardware without password
+// Members of the "wheel" group can run legion-helper.sh without auth.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        subject.isInGroup("wheel")) {
+        var cmd = action.lookup("command");
+        if (cmd && cmd.indexOf("legion-helper.sh") >= 0) {
+            return polkit.Result.YES;
+        }
+    }
+});

@@ -7,7 +7,12 @@ KDE Plasma 6 / Wayland compatible.
 
 import os, sys, subprocess, json, time, threading
 from pathlib import Path
-from kernel_check import get_fan_status_message
+
+_lib = Path(__file__).resolve().parent / "lib"
+if not (_lib / "lll_adapter.py").exists():
+    _lib = Path(__file__).resolve().parent.parent / "lib"
+sys.path.insert(0, str(_lib))
+import lll_adapter as lll
 
 os.environ["QT_QPA_PLATFORM"] = "wayland"
 os.environ["QT_WAYLAND_DISABLE_WINDOWDECORATION"] = "1"
@@ -16,7 +21,7 @@ if "XDG_RUNTIME_DIR" not in os.environ:
     os.environ["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
 
 # ── Legion logo icon (embedded, no external file) ────────────────────────────
-_LEGION_ICON_B64 = "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"
+_LEGION_ICON_B64 = "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"
 
 def _legion_icon():
     import base64 as _b64
@@ -41,175 +46,33 @@ from PyQt6.QtGui import QColor, QPainter, QPen, QBrush, QFont, QCursor
 # ══════════════════════════════════════════════════════════════════════════════
 # PATHS
 # ══════════════════════════════════════════════════════════════════════════════
-PLATFORM_PROFILE  = Path("/sys/firmware/acpi/platform_profile")
-_POWERMODE_MAP = {1: "quiet", 2: "balanced", 3: "performance", 255: "custom"}
-
-LEGION_SYS_BASEPATH = Path("/sys/module/legion_laptop/drivers/platform:legion/legion")
+LEGION_SYS_BASEPATH = Path(lll.LEGION_SYS_BASEPATH)
+IDEAPAD_SYS_BASEPATH = Path(lll.IDEAPAD_SYS_BASEPATH)
 LEGION_POWERMODE    = LEGION_SYS_BASEPATH / "powermode"
+AMD_BOOST           = Path("/sys/devices/system/cpu/cpufreq/boost")
 
-def _read_powermode() -> str:
-    try:
-        return _POWERMODE_MAP.get(int(LEGION_POWERMODE.read_text().strip()), "balanced")
-    except:
-        return "balanced"
-AMD_BOOST         = Path("/sys/devices/system/cpu/cpufreq/boost")
-DAEMON_BIN        = Path("/usr/lib/legion-toolkit/legion-daemon.py")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# DYNAMIC SYSFS PATH DETECTION
-# Works for ALL Lenovo models across all brands and generations.
-# Never hardcodes a specific path — scans the actual filesystem at startup.
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _find_feature(feature: str) -> "Path | None":
-    """
-    Dynamically find a Lenovo feature file anywhere in sysfs.
-    Searches ideapad_acpi, legion_laptop, wmi, platform and devices trees.
-    """
-    # Ordered list of search bases — checked in priority order
-    search_bases = []
-
-    # 1. ideapad_acpi — IdeaPad, Legion, Yoga, LOQ, ThinkBook
-    ideapad_root = Path("/sys/bus/platform/drivers/ideapad_acpi")
-    if ideapad_root.exists():
-        try:
-            for d in ideapad_root.iterdir():
-                if d.is_dir() or d.is_symlink():
-                    search_bases.append(d)
-        except: pass
-
-    # 2. legion_laptop driver — Legion, LOQ (any generation, any PCI slot)
-    for legion_root in [
-        Path("/sys/bus/platform/drivers/legion"),
-        Path("/sys/module/legion_laptop/drivers/platform:legion"),
-    ]:
-        if legion_root.exists():
-            try:
-                for d in legion_root.iterdir():
-                    search_bases.append(d)
-            except: pass
-
-    # 3. PNP0C09/VPC2004 device — scan all PCI buses (different slot on different models, kernel 7.x uses VPC2004)
-    try:
-        for pci in Path("/sys/devices").glob("pci*"):
-            for dev in pci.glob("*/PNP0C09:*"):
-                search_bases.append(dev)
-            for dev in pci.glob("*/VPC2004:*"):
-                search_bases.append(dev)
-    except: pass
-
-    # 4. WMI devices — some features exposed via WMI
-    wmi_root = Path("/sys/bus/wmi/devices")
-    if wmi_root.exists():
-        try:
-            for d in wmi_root.iterdir():
-                search_bases.append(d)
-        except: pass
-
-    # 5. General platform devices
-    plat_root = Path("/sys/bus/platform/devices")
-    if plat_root.exists():
-        try:
-            for d in plat_root.iterdir():
-                n = d.name.lower()
-                if any(k in n for k in ["vpc","ideapad","legion","lenovo","thinkpad"]):
-                    search_bases.append(d)
-        except: pass
-
-    # Search all bases for the feature file
-    for base in search_bases:
-        try:
-            p = Path(base) / feature
-            if p.exists(): return p
-        except: pass
-
-    return None
-
-
-def _find_ideapad(feature: str) -> "Path | None":
-    """Find ideapad_acpi specific feature (conservation_mode, fn_lock etc.)"""
-    root = Path("/sys/bus/platform/drivers/ideapad_acpi")
-    if root.exists():
-        try:
-            for d in root.iterdir():
-                p = d / feature
-                if p.exists(): return p
-        except: pass
-    # Fallback to general scan
-    return _find_feature(feature)
-
-
-# ── Resolve all feature paths at startup ─────────────────────────────────────
-IDEAPAD_BASE      = (lambda: next(
-    (d for d in Path("/sys/bus/platform/drivers/ideapad_acpi").iterdir()
-     if (d / "conservation_mode").exists() or (d / "fn_lock").exists()),
-    Path("/sys/bus/platform/drivers/ideapad_acpi/VPC2004:00")
-) if Path("/sys/bus/platform/drivers/ideapad_acpi").exists()
-  else Path("/sys/bus/platform/drivers/ideapad_acpi/VPC2004:00"))()
-
-LEGION_SYS_BASEPATH = LEGION_SYS_BASEPATH  # from line 47
-
-# G-Sync — use the LLL device path
-_GSYNC_PATH  = LEGION_SYS_BASEPATH / "gsync"
-
-CONSERVATION_MODE = _find_ideapad("conservation_mode") or IDEAPAD_BASE / "conservation_mode"
-CAMERA_POWER      = _find_ideapad("camera_power")      or IDEAPAD_BASE / "camera_power"
-FN_LOCK           = _find_ideapad("fn_lock")            or IDEAPAD_BASE / "fn_lock"
-USB_CHARGING      = _find_ideapad("usb_charging")       or IDEAPAD_BASE / "usb_charging"
-
-TOUCHPAD          = LEGION_SYS_BASEPATH / "touchpad"
+CONSERVATION_MODE = IDEAPAD_SYS_BASEPATH / "conservation_mode"
+CAMERA_POWER      = IDEAPAD_SYS_BASEPATH / "camera_power"
+FN_LOCK           = IDEAPAD_SYS_BASEPATH / "fn_lock"
+USB_CHARGING      = IDEAPAD_SYS_BASEPATH / "usb_charging"
 RAPID_CHARGE      = LEGION_SYS_BASEPATH / "rapidcharge"
 WINKEY            = LEGION_SYS_BASEPATH / "winkey"
 OVERDRIVE         = LEGION_SYS_BASEPATH / "overdrive"
-GSYNC             = _GSYNC_PATH
-NVIDIA_BACKLIGHT = Path("/sys/class/backlight/nvidia_wmi_ec_backlight/brightness")
+GSYNC             = LEGION_SYS_BASEPATH / "gsync"
+TOUCHPAD          = LEGION_SYS_BASEPATH / "touchpad"
 POWER_CHARGE_MODE = LEGION_SYS_BASEPATH / "powerchargemode"
 THERMAL_MODE      = LEGION_SYS_BASEPATH / "thermalmode"
-FAN_FULLSPEED     = LEGION_SYS_BASEPATH / "fan_fullspeed"
+NVIDIA_BACKLIGHT  = Path("/sys/class/backlight/nvidia_wmi_ec_backlight/brightness")
 
-LEGION_BASE = LEGION_SYS_BASEPATH
+BAT = next(
+    (Path(p) for p in [
+        "/sys/class/power_supply/BAT0",
+        "/sys/class/power_supply/BAT1",
+        "/sys/class/power_supply/CMB0",
+    ] if Path(p).exists()),
+    Path("/sys/class/power_supply/BAT0"),
+)
 
-def get_gsync_status() -> bool:
-    """Check if G-Sync (hybrid mode) is enabled."""
-    if _GSYNC_PATH.exists():
-        try:
-            return _GSYNC_PATH.read_text().strip() == "1"
-        except:
-            pass
-    return False
-
-def set_gsync(enable: bool) -> tuple[bool, str]:
-    """Enable/disable G-Sync."""
-    if _GSYNC_PATH.exists():
-        try:
-            subprocess.run(["pkexec", "sh", "-c", f"echo {'1' if enable else '0'} > {_GSYNC_PATH}"],
-                        capture_output=True, timeout=5)
-            return True, f"G-Sync {'enabled' if enable else 'disabled'}"
-        except Exception as e:
-            return False, str(e)[:80]
-    return False, "G-Sync not available on this system"
-
-def get_gpu_hybrid_status() -> bool:
-    """Check if GPU is in hybrid mode (switchable graphics)."""
-    try:
-        r = subprocess.run(["which", "envycontrol"], capture_output=True)
-        if r.returncode != 0:
-            return False
-        r = subprocess.run(["envycontrol", "query"], capture_output=True, text=True)
-        return "hybrid" in r.stdout.lower()
-    except:
-        return False
-
-# ── Flip to Start / Instant Boot ─────────────────────────────────────────────
-def _find_sysfs_feature(names: list) -> "Path | None":
-    for name in names:
-        p = _find_feature(name)
-        if p: return p
-    return None
-
-FLIP_TO_START = _find_sysfs_feature(["flip_to_start","fliptostart","flip_to_boot","fliptoboot"])
-INSTANT_BOOT  = _find_sysfs_feature(["instant_boot","instantboot","instant_on","ac_boot"])
-BAT               = Path("/sys/class/power_supply/BAT0")
 ACTIONS_CFG       = Path.home() / ".config/legion-toolkit/actions.json"
 OC_CFG            = Path.home() / ".config/legion-toolkit/overclock.json"
 CFG_DIR         = Path.home() / ".config/legion-toolkit"
@@ -472,102 +335,108 @@ def save_language(lang: str):
     except: pass
 
 # ══════════════════════════════════════════════════════════════════════════════
-# HARDWARE DETECTION
+# HARDWARE DETECTION (via LLL backend)
 # ══════════════════════════════════════════════════════════════════════════════
-HARDWARE_CACHE_TTL = 3600  # Cache for 1 hour
+HARDWARE_CACHE_TTL = 3600
 
 def _dmi(field: str) -> str:
     try: return Path(f"/sys/class/dmi/id/{field}").read_text().strip().lower()
     except: return ""
 
 def _read_file(path: str, default: str = "") -> str:
-    """Safely read a file, return default on error."""
     try: return Path(path).read_text().strip()
     except: return default
 
 def _which(cmd: str) -> bool:
-    """Check if command exists in PATH."""
     return Path(cmd).exists() or subprocess.run(["which", cmd], capture_output=True).returncode == 0
 
-def _exists_quiet(paths: list) -> bool:
-    """Check if any path exists."""
-    return any(Path(p).exists() for p in paths)
-
-# Legion model mapping for better detection
 LEGION_MODELS = {
-    "82ju": "Legion 5 15ACH6H",
-    "82gu": "Legion 5 15ACH5",
-    "82ms": "Legion 7 16ACHg6",
-    "82rh": "Legion 5 Pro 16ARH7",
-    "82sr": "Legion 5 Pro 16",
-    "82ts": "Legion 7 16",
+    "82ju": "Legion 5 15ACH6H", "82gu": "Legion 5 15ACH5",
+    "82ms": "Legion 7 16ACHg6", "82rh": "Legion 5 Pro 16ARH7",
+    "82sr": "Legion 5 Pro 16",  "82ts": "Legion 7 16",
     "82wm": "Legion Slim 7",
 }
 
 def detect_hardware(force: bool = False) -> dict:
-    """
-    Detect Lenovo brand, model and hardware capabilities.
-    Add force=True to bypass cache and re-detect.
-    """
-    # Check cache first
     if not force:
         cached = load_hardware()
         if cached:
             import time
-            cached_time = cached.get("_detected_at", 0)
-            if time.time() - cached_time < HARDWARE_CACHE_TTL:
+            if time.time() - cached.get("_detected_at", 0) < HARDWARE_CACHE_TTL:
                 return cached
-
-    vendor      = _dmi("sys_vendor")
-    product     = _dmi("product_name")
-    family      = _dmi("product_family")
-    chassis     = _dmi("chassis_type")
-
-    # ── Enhanced brand detection ──────────────────────────────────────────
+    vendor = _dmi("sys_vendor")
+    product = _dmi("product_name")
+    family = _dmi("product_family")
     full = f"{product} {family}".lower()
-    
-    # Legion detection with model codes
     if "legion" in full:
         brand = "legion"
-        # Try to get detailed model name
         product_code = product[:4] if product else ""
-        if product_code in LEGION_MODELS:
-            model_detail = LEGION_MODELS[product_code]
-        else:
-            # Try to extract model from product name
-            import re
-            match = re.search(r'(legion\s+\d+|loq\s+\d+)', full, re.IGNORECASE)
-            model_detail = match.group(0).title() if match else product.title()
+        model_detail = LEGION_MODELS.get(product_code, product.title())
     elif "loq" in full:
-        brand = "loq"
-        model_detail = product.title() if product else "LOQ"
+        brand = "loq"; model_detail = product.title() if product else "LOQ"
     elif "thinkpad" in full:
-        brand = "thinkpad"
-        model_detail = product.title() if product else "ThinkPad"
-    elif "thinkbook" in full:
-        brand = "thinkbook"
-        model_detail = product.title() if product else "ThinkBook"
-    elif "yoga" in full:
-        brand = "yoga"
-        model_detail = product.title() if product else "Yoga"
-    elif any(k in full for k in ["ideapad", "idea pad", "flex", "slim"]):
-        brand = "ideapad"
-        model_detail = product.title() if product else "IdeaPad"
+        brand = "thinkpad"; model_detail = product.title() if product else "ThinkPad"
     else:
         brand = "lenovo" if "lenovo" in vendor else "unknown"
         model_detail = product.title() if product else "Unknown"
-
-    # ── CPU vendor detection ──────────────────────────────────────────────────
-    cpu_vendor = "unknown"
-    cpu_name   = "Unknown"
+    cpu_vendor = "unknown"; cpu_name = "Unknown"
     try:
         for line in Path("/proc/cpuinfo").read_text().splitlines():
             if "vendor_id" in line.lower():
                 v = line.split(":")[1].strip().lower()
-                if "amd" in v:   cpu_vendor = "amd"
+                if "amd" in v: cpu_vendor = "amd"
                 elif "intel" in v: cpu_vendor = "intel"
             if "model name" in line.lower() and cpu_name == "Unknown":
                 cpu_name = line.split(":")[1].strip()
+    except: pass
+    gpu = lll.get_gpu_info()
+    hw = lll.detect_hardware()
+    def ex(p): return Path(p).exists()
+    cap = {
+        "brand": brand, "model": product, "vendor": vendor, "family": family,
+        "cpu_vendor": cpu_vendor, "cpu_name": cpu_name,
+        "has_nvidia": gpu.get("nvidia", False),
+        "has_amd_gpu": gpu.get("amd", False),
+        "has_intel_gpu": gpu.get("intel", False),
+        "lll_loaded": hw.get("lll_loaded", False),
+        "lll_bound": hw.get("lll_bound", False),
+        "conservation_mode": hw.get("conservation_mode", False),
+        "rapidcharge": hw.get("rapidcharge", False),
+        "fn_lock": hw.get("fn_lock", False),
+        "camera": hw.get("camera", False),
+        "touchpad": hw.get("touchpad", False),
+        "winkey": hw.get("winkey", False),
+        "usb_charging": hw.get("usb_charging", False),
+        "overdrive": hw.get("overdrive", False),
+        "gsync": hw.get("gsync", False),
+        "fan_fullspeed": hw.get("fan_fullspeed", False),
+        "kbd_backlight": hw.get("kbd_backlight", False),
+        "ylogo": hw.get("ylogo", False),
+        "ioport": hw.get("ioport", False),
+        "screen_backlight": bool(list(Path("/sys/class/backlight").iterdir())
+                                 if Path("/sys/class/backlight").exists() else []),
+        "fingerprint": any(Path(d).exists() and list(Path(d).glob("*")) for d in [
+            "/sys/bus/usb/drivers/validity-sensor",
+            "/sys/bus/usb/drivers/synaptics-usb",
+            "/sys/bus/usb/drivers/fpc_fingerprint",
+            "/sys/bus/usb/drivers/elan-fingerprint",
+            "/sys/bus/platform/drivers/fingerprint",
+        ]),
+    }
+    return cap
+
+def load_hardware() -> dict:
+    try:
+        if HARDWARE_CFG.exists():
+            return json.loads(HARDWARE_CFG.read_text())
+    except: return {}
+    
+def save_hardware(cap: dict):
+    try:
+        HARDWARE_CFG.parent.mkdir(parents=True, exist_ok=True)
+        import time
+        cap["_detected_at"] = time.time()
+        HARDWARE_CFG.write_text(json.dumps(cap, indent=2))
     except: pass
 
     # ── GPU detection — Optimized ───────────────────────────────────────────
@@ -903,28 +772,14 @@ def rdsys(path, default="0"):
     except: return default
 
 def wrsys(path, value):
-    """Write to sysfs — tries daemon socket first, then direct, then pkexec."""
-    import socket as _s
+    """Write to sysfs — tries direct write, then pkexec fallback."""
     path = str(path)
     value = str(value)
-    # Method 1: daemon socket (root daemon writes with correct permissions)
-    try:
-        c = _s.socket(_s.AF_UNIX, _s.SOCK_STREAM)
-        c.settimeout(2.0)
-        c.connect("/run/legion-toolkit.sock")
-        c.send(f"write:{path}:{value}\n".encode())
-        resp = c.recv(32).decode().strip()
-        c.close()
-        if resp == "ok": return
-    except Exception:
-        pass
-    # Method 2: direct write (works if user has group permission via udev)
     try:
         Path(path).write_text(value + "\n")
         return
     except Exception:
         pass
-    # Method 3: pkexec fallback
     try:
         v = value.replace("'","").replace(";","").replace("&","")
         subprocess.Popen(
@@ -934,30 +789,13 @@ def wrsys(path, value):
     except Exception:
         pass
 
-DAEMON_SOCKET = "/run/legion-toolkit.sock"
-
 def apply_profile(name: str):
-    """Send profile switch to daemon via unix socket. No pkexec needed."""
-    import socket as _s
+    """Apply power profile via LLL backend."""
     try:
-        c = _s.socket(_s.AF_UNIX, _s.SOCK_STREAM)
-        c.settimeout(2.0)
-        c.connect(DAEMON_SOCKET)
-        c.send(f"set:{name}\n".encode())
-        resp = c.recv(32).decode().strip()
-        c.close()
-        if resp == "ok":
-            return True, f"Profile set to {name}"
-    except Exception as e:
-        pass
-    # Fallback: write powermode directly
-    rev = {"quiet": 1, "balanced": 2, "performance": 3, "custom": 255}
-    try:
-        val = rev.get(name, 2)
-        LEGION_POWERMODE.write_text(f"{val}\n")
+        lll.apply_profile(name)
         return True, f"Profile set to {name}"
     except Exception as e:
-        return False, str(e)
+        return False, str(e)[:80]
 
 def find_hwmon(name):
     for base in [Path("/sys/class/hwmon"),Path("/sys/devices/virtual/hwmon")]:
@@ -1025,6 +863,11 @@ def get_ic_temp() -> int:
                 try: return int(f.read_text())//1000
                 except: pass
     return 0
+
+def get_fan_status_message() -> str:
+    if FAN_FULLSPEED.exists():
+        return "✓  LLL fan control ready"
+    return "⚠  fan_fullspeed not found"
 
 def read_fancurve_from_hw() -> str | None:
     """Read current fan curve from LLL debugfs. Returns None if not available."""
@@ -1460,12 +1303,7 @@ def get_governor():
     except: return "—"
 
 def get_ac_connected():
-    try:
-        for psu in Path("/sys/class/power_supply").iterdir():
-            if rdsys(psu/"type","") == "Mains":
-                return rdsys(psu/"online","0") == "1"
-    except: pass
-    return False
+    return lll.get_ac_connected()
 
 def get_ai_engine():
     """Return '1'/'0' for AI Engine state, or None if unavailable."""
@@ -2253,7 +2091,7 @@ def apply_actions_now():
         if not cfg.get("auto_switch"): return
         ac = get_ac_connected()
         target = cfg["on_ac"] if ac else cfg["on_battery"]
-        current = _read_powermode()
+        current = lll.read_powermode()
         if target != current:
             apply_profile(target)
             send_notif("Auto Profile",
@@ -2274,6 +2112,7 @@ class DataSampler(QThread):
         self._last_idle  = 0
         self._last_total = 0
         self._last_ac    = None
+        self._last_profile = None
         # RAPL delta tracking for CPU power
         self._rapl_file  = _find_rapl_energy_file()
         self._rapl_is_delta = (self._rapl_file and
@@ -2342,7 +2181,10 @@ class DataSampler(QThread):
                 # Always sample — these are cheap reads
                 util          = self._read_cpu_util()
                 ac            = get_ac_connected()
-                profile       = _read_powermode()
+                profile       = lll.read_powermode()
+                if profile != self._last_profile and self._last_profile is not None:
+                    lll.set_cpu_boost(profile in ("balanced", "performance"))
+                self._last_profile = profile
 
                 # Medium cost — every tick
                 freq          = get_cpu_freq_ghz()
@@ -2354,7 +2196,7 @@ class DataSampler(QThread):
 
                 # Slightly heavier — battery power
                 try:
-                    bat_power = f"{int(Path('/sys/class/power_supply/BAT0/power_now').read_text())/1_000_000:.1f} W"
+                    bat_power = f"{int(rdsys(BAT/'power_now','0'))/1_000_000:.1f} W"
                 except: bat_power = "—"
 
                 # CPU power via RAPL delta
@@ -2364,7 +2206,7 @@ class DataSampler(QThread):
                 if _tick % 2 == 0 or _tick == 1:
                     ru, rt, rpct  = get_ram_info()
                     gpu           = get_gpu_info()
-                    boost         = rdsys(AMD_BOOST,"0")
+                    boost         = "1" if lll.get_cpu_boost() else "0"
                     gov           = get_governor()
                     epp           = get_epp()
                     ai_engine     = get_ai_engine()
@@ -2826,10 +2668,20 @@ class FirstRunWizard(QDialog):
 
 
 class ToggleSwitch(QWidget):
-    def __init__(self, path=None, on_change=None, parent=None, read_val=None):
+    def __init__(self, path=None, getter=None, setter=None, on_change=None, parent=None, read_val=None):
         super().__init__(parent)
-        self.path = path; self.on_change = on_change
-        val = read_val if read_val is not None else (rdsys(path) if path else "0")
+        self.path = path
+        self.getter = getter
+        self.setter = setter
+        self.on_change = on_change
+        if read_val is not None:
+            val = read_val
+        elif getter:
+            val = "1" if getter() else "0"
+        elif path:
+            val = rdsys(path, "0")
+        else:
+            val = "0"
         self._checked = val == "1"
         self._cx = 26.0 if self._checked else 6.0
         self.setFixedSize(56, 32)
@@ -2851,8 +2703,11 @@ class ToggleSwitch(QWidget):
         self._anim.setStartValue(self._cx)
         self._anim.setEndValue(26.0 if val else 6.0)
         self._anim.start(); self.update()
-        if write and self.path:
-            wrsys(self.path, "1" if val else "0")
+        if write:
+            if self.setter:
+                self.setter(val)
+            elif self.path:
+                wrsys(self.path, "1" if val else "0")
         if notify_title and not silent:
             body = notify_on if val else notify_off or ""
             send_notif(notify_title, body, "dialog-information")
@@ -2860,7 +2715,10 @@ class ToggleSwitch(QWidget):
             self.on_change(val)
 
     def mousePressEvent(self, e):
-        if self.path and Path(self.path).exists():
+        if self.getter:
+            actual = self.getter()
+            self.setChecked(not actual)
+        elif self.path and Path(self.path).exists():
             actual = rdsys(self.path, "0") == "1"
             self.setChecked(not actual)
         else:
@@ -2878,9 +2736,10 @@ class ToggleSwitch(QWidget):
 
 class NotifyToggle(QWidget):
     """ToggleRow that sends a desktop notification on change."""
-    def __init__(self, title, desc, path,
+    def __init__(self, title, desc, path=None,
                  notif_title=None, notif_on="Enabled", notif_off="Disabled",
-                 on_change=None, read_val=None, parent=None):
+                 on_change=None, read_val=None, parent=None,
+                 getter=None, setter=None):
         super().__init__(parent)
         self.setStyleSheet("background:transparent;"); self.setFixedHeight(56)
         self._notif_title = notif_title or title
@@ -2895,7 +2754,8 @@ class NotifyToggle(QWidget):
         d.setWordWrap(True)
         col.addWidget(t); col.addWidget(d)
         lay.addLayout(col); lay.addStretch()
-        self.toggle = ToggleSwitch(path, self._on_toggle, parent=self, read_val=read_val)
+        self.toggle = ToggleSwitch(path=path, getter=getter, setter=setter,
+                                   on_change=self._on_toggle, parent=self, read_val=read_val)
         lay.addWidget(self.toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
         self._on_change = on_change
 
@@ -3267,7 +3127,7 @@ class HomePage(QWidget):
             return c
 
         # Power Mode dropdown
-        cur_profile  = _read_powermode()
+        cur_profile  = lll.read_powermode()
         profile_opts = [(PROFILE_LABELS.get(p,p), p) for p in PROFILES]
         cur_idx      = next((i for i,(_,p) in enumerate(profile_opts) if p == cur_profile), 0)
         self.power_combo = _combo(profile_opts, cur_idx)
@@ -3278,23 +3138,23 @@ class HomePage(QWidget):
         pl.addWidget(make_div())
 
         # Battery Mode dropdown
-        cons = rdsys(CONSERVATION_MODE,"0"); rapid = rdsys(RAPID_CHARGE,"0")
-        bat_mode_now = 1 if cons=="1" else 2 if rapid=="1" else 0
+        bat_mode_now = 1 if lll.get_conservation_mode() else 2 if lll.get_rapid_charge() else 0
         self.bat_combo = _combo(["Normal", "Conservation (~60%)", "Rapid Charge"], bat_mode_now)
         self.bat_combo.currentIndexChanged.connect(self._on_bat_combo)
         pl.addWidget(_setting_row("🔋", "Battery Mode",
             "Choose how the battery is charged.", self.bat_combo))
         pl.addWidget(make_div())
 
-        # Always on USB toggle
-        usb_tog = ToggleSwitch(path=USB_CHARGING,
-                               read_val=rdsys(USB_CHARGING,"0"))
+        # Always on USB dropdown
+        usb_mode = lll.get_usb_charging_mode()
+        self.usb_combo = _combo(lll.USB_CHARGING_LABELS, usb_mode)
+        self.usb_combo.currentIndexChanged.connect(self._on_usb_combo)
         pl.addWidget(_setting_row("🔌", "Always on USB",
-            "Charge USB devices when laptop is off or sleeping.", usb_tog))
+            "Control USB charging behavior.", self.usb_combo))
         pl.addWidget(make_div())
 
         # Fn Lock toggle
-        fn_tog = ToggleSwitch(path=FN_LOCK, read_val=rdsys(FN_LOCK,"0"))
+        fn_tog = ToggleSwitch(getter=lll.get_fn_lock, setter=lll.set_fn_lock)
         pl.addWidget(_setting_row("⌨️", "Fn Lock",
             "Swap Fn and media keys so F1–F12 work as function keys.", fn_tog))
 
@@ -3333,13 +3193,13 @@ class HomePage(QWidget):
         gl.addWidget(make_div())
 
         # G-Sync Toggle — via ToggleSwitch
-        _gsync_tog = ToggleSwitch(path=GSYNC, read_val=rdsys(GSYNC,"0"))
+        _gsync_tog = ToggleSwitch(getter=lll.get_gsync, setter=lll.set_gsync)
         gl.addWidget(_setting_row("🔄", "G-Sync",
             "NVIDIA G-Sync variable refresh rate. Enable for smoother gaming.", _gsync_tog))
         gl.addWidget(make_div())
 
         # Display Overdrive toggle
-        od_tog = ToggleSwitch(path=OVERDRIVE, read_val=rdsys(OVERDRIVE,"0"))
+        od_tog = ToggleSwitch(getter=lll.get_overdrive, setter=lll.set_overdrive)
         gl.addWidget(_setting_row("🖥️", "Display Overdrive",
             "Reduce display response time latency.", od_tog))
         gl.addWidget(make_div())
@@ -3395,15 +3255,15 @@ class HomePage(QWidget):
     def _on_bat_combo(self, idx):
         """Battery Mode: 0=Normal 1=Conservation 2=Rapid"""
         if idx == 0:
-            wrsys(CONSERVATION_MODE, "0"); wrsys(RAPID_CHARGE, "0")
+            lll.set_conservation_mode(False); lll.set_rapid_charge(False)
             send_notif("Battery Mode", "Normal charging", "battery")
             mode = "normal"
         elif idx == 1:
-            wrsys(CONSERVATION_MODE, "1"); wrsys(RAPID_CHARGE, "0")
+            lll.set_conservation_mode(True); lll.set_rapid_charge(False)
             send_notif("Battery Mode", "Conservation — capped at ~60%", "battery")
             mode = "conservation"
         elif idx == 2:
-            wrsys(RAPID_CHARGE, "1"); wrsys(CONSERVATION_MODE, "0")
+            lll.set_rapid_charge(True); lll.set_conservation_mode(False)
             send_notif("Battery Mode", "Rapid Charge ON", "battery")
             mode = "rapid"
         else:
@@ -3411,6 +3271,17 @@ class HomePage(QWidget):
         # Sync Battery page toggles if callback is set
         if self._sync_battery_cb:
             self._sync_battery_cb(mode)
+
+    def _on_usb_combo(self, idx):
+        """Always on USB: 0=Off 1=On when sleeping 2=On always"""
+        lll.set_usb_charging_mode(idx)
+        if idx < len(lll.USB_CHARGING_LABELS):
+            send_notif("USB Charging", lll.USB_CHARGING_LABELS[idx], "usb")
+        # Sync Charging page combo
+        if hasattr(self, '_charge_usb_combo'):
+            self._charge_usb_combo.blockSignals(True)
+            self._charge_usb_combo.setCurrentIndex(idx)
+            self._charge_usb_combo.blockSignals(False)
 
     def _on_gpu_mode_combo(self, idx):
         """Apply GPU mode via envycontrol then notify user to reboot."""
@@ -3601,8 +3472,8 @@ class BatteryPage(QWidget):
 
         cc, cl = make_card("Charging Settings")
         # Normal charging toggle — ON = conservation OFF AND rapid OFF
-        _is_normal = (rdsys(CONSERVATION_MODE,"0") == "0" and
-                      rdsys(RAPID_CHARGE,"0") == "0")
+        _is_normal = (not lll.get_conservation_mode() and
+                      not lll.get_rapid_charge())
         self._normal_toggle = ToggleSwitch(
             path=None,
             on_change=self._on_normal_toggle,
@@ -3623,44 +3494,43 @@ class BatteryPage(QWidget):
         rows = [
             ("Conservation Mode",
              "Limits charge to ~60% to extend battery lifespan.",
-             CONSERVATION_MODE, "conservation"),
+             lll.get_conservation_mode, lll.set_conservation_mode, "conservation"),
             ("Rapid Charging",
              "Charges faster, generates more heat.",
-             RAPID_CHARGE, "rapid"),
-            ("USB Charging (off)",
-             "Keep USB ports powered when laptop is off/sleeping.",
-             USB_CHARGING, "usb"),
+             lll.get_rapid_charge, lll.set_rapid_charge, "rapid"),
             ("Power Charge Mode",
              "Optimised charging curve for battery longevity.",
-             POWER_CHARGE_MODE, "pcm"),
+             lambda: rdsys(POWER_CHARGE_MODE,"0") == "1",
+             lambda v: wrsys(POWER_CHARGE_MODE, "1" if v else "0"),
+             "pcm"),
         ]
         self.charge_toggles = {}
-        for i, (title, desc, path, key) in enumerate(rows):
-            # Build on_change callback that syncs the Home combo
+        for i, (title, desc, getter, setter, key) in enumerate(rows):
             def _make_cb(k):
                 def _cb(val):
                     if k == "conservation" and val:
-                        wrsys(RAPID_CHARGE, "0")
+                        lll.set_rapid_charge(False)
                         if "rapid" in self.charge_toggles:
                             self.charge_toggles["rapid"].setChecked(False, write=False, silent=True)
                         self._normal_toggle.setChecked(False, write=False, silent=True)
                         if self._sync_home_cb: self._sync_home_cb(1)
                     elif k == "rapid" and val:
-                        wrsys(CONSERVATION_MODE, "0")
+                        lll.set_conservation_mode(False)
                         if "conservation" in self.charge_toggles:
                             self.charge_toggles["conservation"].setChecked(False, write=False, silent=True)
                         self._normal_toggle.setChecked(False, write=False, silent=True)
                         if self._sync_home_cb: self._sync_home_cb(2)
-                    elif not val:
-                        # Turned off — check if both now off → Normal
-                        cons  = rdsys(CONSERVATION_MODE, "0")
-                        rapid = rdsys(RAPID_CHARGE, "0")
-                        if cons == "0" and rapid == "0":
-                            self._normal_toggle.setChecked(True, write=False, silent=True)
-                            if self._sync_home_cb: self._sync_home_cb(0)
+                    elif k == "conservation" and not val and (not lll.get_rapid_charge()):
+                        self._normal_toggle.setChecked(True, write=False, silent=True)
+                        if self._sync_home_cb: self._sync_home_cb(0)
+                    elif k == "rapid" and not val and (not lll.get_conservation_mode()):
+                        self._normal_toggle.setChecked(True, write=False, silent=True)
+                        if self._sync_home_cb: self._sync_home_cb(0)
+                    self._update_dashboard()
                 return _cb
 
-            nt = NotifyToggle(title, desc, path,
+            nt = NotifyToggle(title, desc,
+                              getter=getter, setter=setter,
                               notif_title=title,
                               notif_on="Enabled",
                               notif_off="Disabled",
@@ -3669,6 +3539,27 @@ class BatteryPage(QWidget):
             cl.addWidget(nt)
             if i < len(rows)-1: cl.addWidget(make_div())
         root.addWidget(cc)
+
+        # ── USB Charging dropdown ──────────────────────────────────────────
+        uc, ul = make_card("🔌  USB Charging")
+        usb_desc = QLabel(
+            "Choose when USB ports remain powered.")
+        usb_desc.setWordWrap(True)
+        usb_desc.setStyleSheet(f"color:{C_TEXT2};font-size:12px;background:transparent;")
+        ul.addWidget(usb_desc)
+        ul.addWidget(make_div())
+        usb_mode = lll.get_usb_charging_mode()
+        self._charge_usb_combo = QComboBox()
+        self._charge_usb_combo.setStyleSheet(combo_style())
+        self._charge_usb_combo.setFixedWidth(170); self._charge_usb_combo.setFixedHeight(34)
+        for opt in lll.USB_CHARGING_LABELS:
+            self._charge_usb_combo.addItem(opt)
+        self._charge_usb_combo.setCurrentIndex(usb_mode)
+        self._charge_usb_combo.currentIndexChanged.connect(self._on_charge_usb_combo)
+        usb_row = QHBoxLayout()
+        usb_row.addWidget(self._charge_usb_combo); usb_row.addStretch()
+        ul.addLayout(usb_row)
+        root.addWidget(uc)
 
         # ── ThinkPad charge thresholds (only shown on ThinkPads) ──────────────
         if HW.get("tp_charge_start") and HW.get("tp_charge_stop"):
@@ -3728,6 +3619,15 @@ class BatteryPage(QWidget):
         if "rapid" in self.charge_toggles:
             self.charge_toggles["rapid"].setChecked(mode == "rapid",        write=False, silent=True)
 
+    def _on_charge_usb_combo(self, idx):
+        """USB mode from Charging page: 0=Off 1=On when sleeping 2=On always"""
+        lll.set_usb_charging_mode(idx)
+        # Sync Features page combo
+        if hasattr(self, 'usb_combo'):
+            self.usb_combo.blockSignals(True)
+            self.usb_combo.setCurrentIndex(idx)
+            self.usb_combo.blockSignals(False)
+
     def _apply_tp_thresholds(self):
         start = self._tp_start.value()
         stop  = self._tp_stop.value()
@@ -3753,8 +3653,8 @@ class BatteryPage(QWidget):
 
     def _on_normal_toggle(self, val):
         if val:
-            wrsys(CONSERVATION_MODE, "0")
-            wrsys(RAPID_CHARGE, "0")
+            lll.set_conservation_mode(False)
+            lll.set_rapid_charge(False)
             if "conservation" in self.charge_toggles:
                 self.charge_toggles["conservation"].setChecked(False, write=False, silent=True)
             if "rapid" in self.charge_toggles:
@@ -3814,8 +3714,12 @@ class PerformancePage(QWidget):
         bd.setStyleSheet(f"color:{C_TEXT2};font-size:12px;background:transparent;"); bd.setWordWrap(True)
         bt_col.addWidget(bt); bt_col.addWidget(bd)
         br.addLayout(bt_col); br.addStretch()
-        _boost_read = "1" if _is_intel and rdsys(_boost_path,"1") == "0" else rdsys(_boost_path,"0")
-        self.boost_toggle = ToggleSwitch(_boost_path, read_val=_boost_read)
+        if _is_intel:
+            _boost_read = "1" if rdsys(_boost_path,"1") == "0" else rdsys(_boost_path,"0")
+            self.boost_toggle = ToggleSwitch(path=_boost_path, read_val=_boost_read)
+        else:
+            self.boost_toggle = ToggleSwitch(getter=lll.get_cpu_boost, setter=lll.set_cpu_boost,
+                                             read_val="1" if lll.get_cpu_boost() else "0")
         br.addWidget(self.boost_toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
         bl.addLayout(br); root.addWidget(bc)
 
@@ -3842,11 +3746,13 @@ class PerformancePage(QWidget):
 
         # Fan & Thermal
         fc, fl = make_card("Fan & Thermal")
-        for i, (t, d, p) in enumerate([
-            ("Fan Full Speed","Lock both fans to maximum speed immediately.", FAN_FULLSPEED),
-            ("Thermal Mode","Enhanced thermal performance for sustained workloads.", THERMAL_MODE),
+        for i, (t, d, getter, setter) in enumerate([
+            ("Fan Full Speed","Lock both fans to maximum speed immediately.",
+             lll.get_fan_fullspeed, lll.set_fan_fullspeed),
+            ("Thermal Mode","Enhanced thermal performance for sustained workloads.",
+             lll.get_thermal_mode, lll.set_thermal_mode),
         ]):
-            fl.addWidget(NotifyToggle(t, d, p, notif_title=t))
+            fl.addWidget(NotifyToggle(t, d, getter=getter, setter=setter, notif_title=t))
             if i == 0: fl.addWidget(make_div())
         root.addWidget(fc)
 
@@ -3874,14 +3780,12 @@ class PerformancePage(QWidget):
             self.temp_row.set_value(f"{d.get('cpu_temp',0)} °C")
             epp = d.get("epp","default")
         else:
-            boost = rdsys(AMD_BOOST,"0")
+            boost = "1" if lll.get_cpu_boost() else "0"
             self.gov_row.set_value(get_governor())
             self.freq_row.set_value(f"{get_cpu_freq_ghz()} GHz")
             self.temp_row.set_value(f"{get_cpu_temp()} °C")
             epp = get_epp()
-        self.boost_toggle._checked = boost == "1"
-        self.boost_toggle._cx = 22.0 if boost=="1" else 4.0
-        self.boost_toggle.update()
+        self.boost_toggle.setChecked(boost == "1", write=False)
         self.boost_row.set_value("ON ✓" if boost=="1" else "OFF ✗")
         if epp in EPP_VALUES:
             self.epp_combo.blockSignals(True)
@@ -3986,14 +3890,15 @@ class DisplayPage(QWidget):
         dc, dl = make_card("Display Settings")
         dl.addWidget(NotifyToggle("Display Overdrive",
                                   "Reduce display response time. May introduce minor artefacts.",
-                                  OVERDRIVE, notif_title="Display Overdrive"))
+                                  getter=lll.get_overdrive, setter=lll.set_overdrive,
+                                  notif_title="Display Overdrive"))
         dl.addWidget(make_div())
 
         # G-Sync — via Legion sysfs node
         _gsync_nt = NotifyToggle(
             "G-Sync",
             "NVIDIA G-Sync variable refresh rate. Enable for smoother gaming.",
-            GSYNC,
+            getter=lll.get_gsync, setter=lll.set_gsync,
             notif_title="G-Sync")
         dl.addWidget(_gsync_nt)
 
@@ -4665,16 +4570,20 @@ class SystemPage(QWidget):
         ic, il = make_card("Input Devices")
         input_rows = [
             ("Fn Lock",   "Swap Fn and media keys so F1–F12 work as standard keys.",
-             FN_LOCK,   "Fn Lock ON — F1-F12 as function keys",  "Fn Lock OFF — media keys"),
+             lll.get_fn_lock, lll.set_fn_lock,
+             "Fn Lock ON — F1-F12 as function keys",  "Fn Lock OFF — media keys"),
             ("Super Key", "Enable or disable the Windows/Super key.",
-             WINKEY,   "Super Key Enabled",  "Super Key Disabled"),
+             lll.get_winkey, lll.set_winkey,
+             "Super Key Enabled",  "Super Key Disabled"),
             ("Touchpad",  "Enable or disable the built-in touchpad.",
-             TOUCHPAD, "Touchpad Enabled",   "Touchpad Disabled"),
+             lll.get_touchpad, lll.set_touchpad,
+             "Touchpad Enabled",   "Touchpad Disabled"),
             ("Camera",    "Hardware kill switch for the built-in webcam.",
-             CAMERA_POWER,"Camera Enabled",  "Camera Disabled 🔒"),
+             lll.get_camera_power, lll.set_camera_power,
+             "Camera Enabled",  "Camera Disabled 🔒"),
         ]
-        for i, (title, desc, path, notif_on, notif_off) in enumerate(input_rows):
-            il.addWidget(NotifyToggle(title, desc, path,
+        for i, (title, desc, getter, setter, notif_on, notif_off) in enumerate(input_rows):
+            il.addWidget(NotifyToggle(title, desc, getter=getter, setter=setter,
                                       notif_title=title,
                                       notif_on=notif_on, notif_off=notif_off))
             if i < len(input_rows)-1: il.addWidget(make_div())
@@ -6176,7 +6085,7 @@ class ActionsPage(QWidget):
             profile = d.get("profile", "balanced")
         else:
             ac      = get_ac_connected()
-            profile = _read_powermode()
+            profile = lll.read_powermode()
         self.ac_status.set_value("AC Adapter" if ac else "Battery")
         self.prof_status.set_value(PROFILE_LABELS.get(profile, "—"))
         self.auto_status.set_value(
@@ -6434,7 +6343,7 @@ class LegionDashboard(QMainWindow):
         # Hidden badge kept for _refresh_badge compat — not shown
         self.badge = QLabel(""); self.badge.hide()
         self.ac_ind = QLabel(""); self.ac_ind.hide()
-        self._refresh_badge(_read_powermode())
+        self._refresh_badge(lll.read_powermode())
         right.addWidget(topbar)
 
         self.stack = QStackedWidget()

@@ -1,21 +1,20 @@
 <div align="center">
   <img src="logo.png" width="80" alt="Legion Linux Toolkit"/>
   <h1>Legion Linux Toolkit</h1>
-  <p><strong>A native Linux power management dashboard for Lenovo laptops</strong></p>
-  <p>Developed on CachyOS · KDE Plasma 6 · Wayland — works on any Arch-based distro</p>
+  <p><strong>A PyQt6 GUI dashboard for Lenovo Legion laptops</strong></p>
+  <p>Hardware backend: <a href="https://github.com/johnfanv2/LenovoLegionLinux">LLL (LenovoLegionLinux)</a></p>
+  <p>KDE Plasma 6 · Wayland — works on any Arch-based distro</p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-v0.6.3--BETA-red?style=flat-square"/>
-    <a href="https://v4cachy.github.io/legion-linux-toolkit/"><img src="https://img.shields.io/badge/website-live-blue?style=flat-square"/></a>
-    <img src="https://img.shields.io/badge/build-20260504-orange?style=flat-square"/>
+    <img src="https://img.shields.io/badge/version-v0.6.3--LLL-red?style=flat-square"/>
     <img src="https://img.shields.io/badge/platform-Linux-blue?style=flat-square"/>
-    <img src="https://img.shields.io/badge/desktop-KDE%20Plasma%206-purple?style=flat-square"/>
     <img src="https://img.shields.io/badge/python-PyQt6-green?style=flat-square"/>
+    <img src="https://img.shields.io/badge/backend-LLL-blueviolet?style=flat-square"/>
     <img src="https://img.shields.io/badge/license-MIT-white?style=flat-square"/>
   </p>
 </div>
 
-> **Status:** Beta — developed and tested on a Lenovo Legion 5 15ACH6H. Multi-brand support (ThinkPad, Yoga, IdeaPad, LOQ) is implemented via dynamic hardware detection but has had limited testing on those models. Contributions and issue reports from other Lenovo hardware are welcome.
+> **LLL Backend:** This toolkit uses [LenovoLegionLinux (LLL)](https://github.com/johnfanv2/LenovoLegionLinux) for all hardware control — power profiles, fan curves, battery conservation, overclocking, and more. The Python `legion_linux` library replaces direct sysfs access. Uses LLL's `legiond` daemon instead of a custom one.
 
 <p align="center">
   <a href="https://v4cachy.github.io/legion-linux-toolkit/">
@@ -74,14 +73,9 @@ Learn more about features, supported hardware, and installation instructions.
 
 | Brand | Models | Support |
 |-------|--------|---------|
-| 🎮 **Legion** | Legion 5, 5 Pro, 7, Slim 5/7 | ✅ Full — RGB, OC, GPU switching, fan, G-Sync |
-| 🎮 **LOQ** | LOQ 15, 16 | ✅ Full — power, fan, GPU switching |
-| 💼 **ThinkPad** | All modern ThinkPad models | ✅ Full + charge thresholds, fan levels 0–7, TrackPoint |
-| 🔄 **Yoga** | Yoga 6, 7, 9, Slim series | ✅ Full + hinge mode, auto-rotate |
-| 💻 **IdeaPad** | IdeaPad 5, Flex, Slim | ✅ Standard — power, battery, toggles |
-| 📋 **ThinkBook** | ThinkBook 14, 16 | ✅ Standard — power, battery, fingerprint |
+| 🎮 **Legion** | Legion 5, 5 Pro, 7, Slim 5/7 | ✅ Full — RGB, OC, fan, G-Sync (via LLL) |
 
-> Features shown per-device are determined at runtime by hardware detection — only controls supported by your specific hardware will appear.
+> Hardware support is determined by LLL (LenovoLegionLinux) kernel module. Only Legion/LOQ models with the `legion_laptop` kernel module are fully supported.
 
 ---
 
@@ -206,17 +200,23 @@ python-pyqt6   qt6-wayland   libnotify   kscreen   git
 
 ## 🚀 Install
 
+### Prerequisites
+- Arch-based distro (Arch, CachyOS, EndeavourOS, Manjaro)
+- LLL kernel module: `lenovolegionlinux` + `lenovolegionlinux-dkms` from AUR/repos
+
+### Quick Install
 ```bash
 git clone https://github.com/v4cachy/legion-linux-toolkit
 cd legion-linux-toolkit
 sudo bash install.sh
 ```
 
-> 💻 For more details, visit: **[https://v4cachy.github.io/legion-linux-toolkit/](https://v4cachy.github.io/legion-linux-toolkit/)**
-> 
-> ✅ Auto-detects your Lenovo brand · installs brand-specific packages · hardware scan · launches tray automatically
-> 
-> 🧙 First launch shows the **setup wizard** — choose language and run one-time hardware detection
+The installer will:
+1. Install PyQt6 and other dependencies
+2. Install LLL (LenovoLegionLinux) packages from repos or AUR
+3. Install the GUI, tray app, and CLI wrapper
+4. Set up autostart for the tray
+5. Enable LLL's `legiond` daemon
 
 ---
 
@@ -226,7 +226,7 @@ sudo bash install.sh
 sudo bash update.sh
 ```
 
-Pulls latest from GitHub, shows commit log, reinstalls all files, restarts daemon and tray.
+Pulls latest toolkit code, reinstalls files.
 
 ---
 
@@ -236,74 +236,21 @@ Pulls latest from GitHub, shows commit log, reinstalls all files, restarts daemo
 sudo bash uninstall.sh
 ```
 
-Removes everything — service, udev rules, polkit, autostart, CLI. Optionally removes user config.
-
 ---
 
-## 🆕 What's New (v0.6.3 — 20260504)
+## 🛠️ Architecture
 
-### 🎨 Complete UI Overhaul
-- **4 new themes** — Dark, Dark Dimmed, OLED Black, and Light
-- **Redesigned sidebar** — wider (220px) with logo, text labels, and hover/active states
-- **Modern card design** — rounded corners (12px), consistent spacing, no grid lines
-- **Polished typography** — consistent font weights (500/600), unified sizes (12px/13px)
-- **Clean layout** — removed all QFrame dividers, grid lines, and structural borders
-- **Perfect alignment** — fixed label widths, consistent margins (24px) across all pages
+This is the **LLL backend version** of Legion Linux Toolkit. All hardware control is delegated to [LenovoLegionLinux](https://github.com/johnfanv2/LenovoLegionLinux):
 
-### 🖥️ Component Updates
-- **Toggles** — larger (56×32), smoother animation, accent color when ON
-- **Sliders** — thicker track, larger handle, hover state
-- **Buttons & Combos** — modern border-radius (8px), accent hover effects
-- **Status Badges** — refined styling with proper spacing
-- **Fan Presets** — horizontal button rows instead of grid layout
-- **About Page** — clean vertical info rows with fixed-width labels
-
-### 🛠️ Infrastructure
-- Version bumped to **v0.6.3**
-- All install/update/uninstall scripts updated
-- Zero structural borders — clean card-only visual hierarchy
-
----
-
-## 🆕 What's New (v0.6.2 — 20260419)
-
-- 🔄 **Fixed G-Sync toggle** — now uses correct sysfs path (`/sys/devices/.../PNP0C09:00/gsync`)
-- ⚡ Uses ToggleSwitch for better UI experience in Home page
-- 🐛 Fixed nvidia_wmi_ec_backlight reference removed from G-Sync
-- 💡 **Fixed Brightness Backlight** — now uses correct path (`/sys/class/backlight/`)
-- 🎮 Added .gitignore
-
----
-
-- 🔌 **LLL (LenovoLegionLinux) Integration** — detects `legion_hwmon` when loaded
-- 🌡️ **IC Temperature display** — shows Integrated Controller temp (when LLL loaded)
-- 📊 **Fan curve status** — displays if custom fan curve is available (when LLL loaded)
-- ⚡ **Daemon auto-switching** — AC/battery power source detection and profile switching
-- 🖥️ **Enhanced fan page** — shows detailed LLL status, kernel compatibility
-- 🤖 **Automatic kernel check** — auto-detects if LLL works on your kernel, no manual updates needed
-
----
-
-## 🆕 What's New (v0.6.1 — 20260320)
-
-- 🌍 11-language first-run wizard + one-time hardware detection
-- 🏷️ Multi-brand: Legion, LOQ, ThinkPad, ThinkBook, Yoga, IdeaPad
-- 🔧 ThinkPad — charge thresholds, fan levels 0–7, TrackPoint sliders, ThinkLight, Mic LED
-- 🔄 Yoga — hinge mode display, orientation lock toggle
-- 🎡 Animated fan icons driven by real RPM
-- 🔴 Legion Y-blade logo in tray, sidebar and title bar
-- 🎨 UI polish — cleaner topbar, brand-aware sidebar
-- 📦 install.sh — brand detection, auto packages, wizard reset on reinstall
-- 🔄 update.sh — `git reset --hard origin` (no more merge conflicts ever)
-
----
-
-## ⚠️ Known Limitations
-- Kernel 7.x + LLL — Some features require `lenovolegionlinux` kernel module which may not support kernel 7.x yet. The toolkit shows status messages when this occurs.
-- Manual fan PWM — not available on Legion driver (firmware-managed)
-- Instant Boot / Flip to Start — BIOS only
-- Dolby Audio / Atmos — Windows driver only
-- IR camera / Windows Hello — not supported
+| Component | LLT Custom (removed) | LLL (used now) |
+|-----------|---------------------|----------------|
+| **Daemon** | `legion-daemon.py` (Python) | `legiond` (C) |
+| **CLI** | `legion-ctl` → daemon | `legion-ctl` → `legion_cli` |
+| **Kernel module** | Direct sysfs reads | `legion_laptop.ko` |
+| **Python library** | Direct sysfs writes | `legion_linux.LegionModelFacade` |
+| **Fan curve** | Debugfs via pkexec | `FanCurveIO` |
+| **Power profiles** | Custom daemon | `PlatformProfileFeature` |
+| **Overclocking** | Direct sysfs | `CPUOverclock`, `GPUOverclock`, etc. |
 
 ---
 
@@ -314,4 +261,4 @@ MIT — free to use, modify and distribute.
 ---
 
 <div align="center">
-  <sub>· Made with ❤️ for Linux on Lenovo ·
+  <sub>· PyQt6 GUI + LLL backend ·
