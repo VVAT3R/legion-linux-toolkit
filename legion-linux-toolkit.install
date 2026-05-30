@@ -1,0 +1,41 @@
+post_install() {
+    # Reload udev rules for keyboard RGB permissions
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
+
+    # Try to load LLL kernel module
+    if ! lsmod 2>/dev/null | grep -q "legion_laptop"; then
+        modprobe legion_laptop 2>/dev/null || true
+        sleep 1
+        if dmesg 2>/dev/null | grep -q "probe with driver legion failed"; then
+            modprobe legion_laptop force=1 2>/dev/null || true
+        fi
+    fi
+
+    echo "  ───────────────────────────────────────────"
+    echo "  Legion Linux Toolkit installed!"
+    echo ""
+    echo "  To use it, install LLL hardware support:"
+    echo "    yay -S lenovolegionlinux-git lenovolegionlinux-dkms-git"
+    echo ""
+    echo "  Then start the tray:"
+    echo "    python3 /usr/lib/legion-toolkit/legion-tray.py &"
+    echo ""
+    echo "  Or log out and back in (autostart will launch it)."
+}
+
+post_upgrade() {
+    post_install
+}
+
+pre_remove() {
+    pkill -f "legion-tray" 2>/dev/null || true
+    pkill -f "legion-gui"  2>/dev/null || true
+}
+
+post_remove() {
+    udevadm control --reload-rules 2>/dev/null || true
+    echo "  Legion Linux Toolkit removed."
+    echo "  LLL packages (lenovolegionlinux*) were NOT removed."
+    echo "  Remove them separately if desired."
+}

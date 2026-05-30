@@ -6189,7 +6189,7 @@ class AboutPage(QWidget):
             ("Desktop", desktop_str),
             ("Driver",  driver_str),
             ("Config",  "~/.config/legion-toolkit/"),
-            ("GitHub",  "github.com/v4cachy/legion-linux-toolkit"),
+            ("GitHub",  "github.com/VVAT3R/legion-linux-toolkit"),
         ]
         for label, value in info_rows:
             row = QWidget()

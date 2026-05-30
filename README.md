@@ -17,7 +17,7 @@
 > **LLL Backend:** This toolkit uses [LenovoLegionLinux (LLL)](https://github.com/johnfanv2/LenovoLegionLinux) for all hardware control — power profiles, fan curves, battery conservation, overclocking, and more. The Python `legion_linux` library replaces direct sysfs access. Uses LLL's `legiond` daemon instead of a custom one.
 
 <p align="center">
-  <a href="https://v4cachy.github.io/legion-linux-toolkit/">
+  <a href="https://github.com/VVAT3R/legion-linux-toolkit">
   </a>
 </p>
 
@@ -25,7 +25,7 @@
 
 ## 🌐 Website
 
-Visit our website: **[https://v4cachy.github.io/legion-linux-toolkit/](https://v4cachy.github.io/legion-linux-toolkit/)**
+Visit our website: **[https://github.com/VVAT3R/legion-linux-toolkit](https://github.com/VVAT3R/legion-linux-toolkit)**
 
 Learn more about features, supported hardware, and installation instructions.
 
@@ -206,7 +206,7 @@ python-pyqt6   qt6-wayland   libnotify   kscreen   git
 
 ### Quick Install
 ```bash
-git clone https://github.com/v4cachy/legion-linux-toolkit
+git clone https://github.com/VVAT3R/legion-linux-toolkit
 cd legion-linux-toolkit
 sudo bash install.sh
 ```
